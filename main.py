@@ -244,5 +244,6 @@ if __name__ == '__main__':
             url_path=TOKEN,
             webhook_url=f"https://your-render-domain.onrender.com/ {TOKEN}"
         )
+        print(f"Webhook set to: {app.bot.get_webhook_info()}")
     except Exception as e:
         logging.error(f"Error starting the bot: {e}")
