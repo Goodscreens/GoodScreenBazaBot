@@ -1,7 +1,14 @@
 import logging
 import os
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters
+)
 
 TOKEN = os.environ.get("TOKEN", "YOUR_BOT_TOKEN")
 
@@ -28,17 +35,17 @@ RESPONSIBLES = {
 SCENARIOS = {
     "Продажи": {
         'start': {
-            'text': 'Это бот-инструкция для отдела продаж. Начнём?\n(Да/Нет)',
+            'text': 'Это бот-инструкция для отдела продаж. Начнём?',
             'yes': 'step_1',
             'no': 'end'
         },
         'step_1': {
-            'text': '1. Новый лид поступил в Bitrix?\n(Да/Нет)',
+            'text': '1. Новый лид поступил в Bitrix?',
             'yes': 'step_1_yes',
             'no': 'step_1_no'
         },
         'step_1_yes': {
-            'text': 'Менеджер принимает лид совершая звонок или отправляя письмо и вносит все данные в Bitrix\n2. Менеджер связался с клиентом?\n(Да/Нет)',
+            'text': 'Менеджер принимает лид совершая звонок или отправляя письмо и вносит все данные в Bitrix\n2. Менеджер связался с клиентом?',
             'yes': 'step_2_yes',
             'no': 'step_2_no'
         },
@@ -48,7 +55,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_2_yes': {
-            'text': 'Уточнить ТЗ клиента и внести все данные в карточку лида, переместив его.\n3. ТЗ клиента уточнено?\n(Да/Нет)',
+            'text': 'Уточнить ТЗ клиента и внести все данные в карточку лида, переместив его.\n3. ТЗ клиента уточнено?',
             'yes': 'step_3_yes',
             'no': 'step_3_no'
         },
@@ -58,7 +65,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_3_yes': {
-            'text': 'Проверка релевантности проекта.\n4. Проект релевантен (бюджет/регион/тема)?\n(Да/Нет)',
+            'text': 'Проверка релевантности проекта.\n4. Проект релевантен (бюджет/регион/тема)?',
             'yes': 'step_4_yes',
             'no': 'step_4_no'
         },
@@ -68,7 +75,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_4_yes': {
-            'text': 'Внести параметры в калькулятор, получить расчёт.\n5. КП подготовлено?\n(Да/Нет)',
+            'text': 'Внести параметры в калькулятор, получить расчёт.\n5. КП подготовлено?',
             'yes': 'step_5_yes',
             'no': 'step_5_no'
         },
@@ -78,7 +85,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_5_yes': {
-            'text': 'Отправить КП клиенту, зафиксировать в Bitrix.\n6. КП отправлено клиенту?\n(Да/Нет)',
+            'text': 'Отправить КП клиенту, зафиксировать в Bitrix.\n6. КП отправлено клиенту?',
             'yes': 'step_6_yes',
             'no': 'step_6_no'
         },
@@ -88,7 +95,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_6_yes': {
-            'text': 'Ждать обратной связи.\n7. Клиент дал обратную связь в течение 3 дней?\n(Да/Нет)',
+            'text': 'Ждать обратной связи.\n7. Клиент дал обратную связь в течение 3 дней?',
             'yes': 'step_7_yes',
             'no': 'step_7_no'
         },
@@ -98,7 +105,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_7_yes': {
-            'text': 'Проверить интерес клиента.\n8. Клиент подтвердил интерес?\n(Да/Нет)',
+            'text': 'Проверить интерес клиента.\n8. Клиент подтвердил интерес?',
             'yes': 'step_8_yes',
             'no': 'step_8_no'
         },
@@ -108,7 +115,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_8_yes': {
-            'text': 'Создать задачу инженеру для согласования.\n9. Передано инженеру для согласования?\n(Да/Нет)',
+            'text': 'Создать задачу инженеру для согласования.\n9. Передано инженеру для согласования?',
             'yes': 'step_9_yes',
             'no': 'step_9_no'
         },
@@ -118,7 +125,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_9_yes': {
-            'text': 'Ждать ответа инженера.\n10. Инженер дал ответ вовремя?\n(Да/Нет)',
+            'text': 'Ждать ответа инженера.\n10. Инженер дал ответ вовремя?',
             'yes': 'step_10_yes',
             'no': 'step_10_no'
         },
@@ -128,7 +135,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_10_yes': {
-            'text': 'КП согласовано, переход к оформлению договора.\n11. КП согласовано, договор оформлен?\n(Да/Нет)',
+            'text': 'КП согласовано, переход к оформлению договора.\n11. КП согласовано, договор оформлен?',
             'yes': 'step_11_yes',
             'no': 'step_11_no'
         },
@@ -138,7 +145,7 @@ SCENARIOS = {
             'no': 'end'
         },
         'step_11_yes': {
-            'text': 'Передача документов Таня (оформление договора/счёта).\n12. Документы переданы в производство?\n(Да/Нет)',
+            'text': 'Передача документов Таня (оформление договора/счёта).\n12. Документы переданы в производство?',
             'yes': 'step_12_yes',
             'no': 'step_12_no'
         },
@@ -163,7 +170,6 @@ SCENARIOS = {
             'no': 'start'
         }
     },
-    # Остальные отделы — заглушки
     "Маркетинг": None,
     "СММ": None,
     "Делопроизводство": None,
@@ -177,106 +183,105 @@ SCENARIOS = {
     "Финансы": None
 }
 
+def get_departments_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(dep, callback_data=f"department|{dep}")]
+        for dep in DEPARTMENTS
+    ])
+
+def get_step_keyboard(step, path):
+    buttons = [
+        [InlineKeyboardButton("Да", callback_data=f"answer|yes")],
+        [InlineKeyboardButton("Нет", callback_data=f"answer|no")]
+    ]
+    nav = []
+    if path:
+        nav.append(InlineKeyboardButton("Назад", callback_data="nav|back"))
+    nav.append(InlineKeyboardButton("Начать сначала", callback_data="nav|reset"))
+    buttons.append(nav)
+    return InlineKeyboardMarkup(buttons)
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    reply_markup = ReplyKeyboardMarkup(
-        [[d] for d in DEPARTMENTS],
-        one_time_keyboard=True,
-        resize_keyboard=True
-    )
-    await update.message.reply_text(
-        "Выберите отдел для работы с ботом:",
-        reply_markup=reply_markup
-    )
+    keyboard = get_departments_keyboard()
+    if update.message:
+        await update.message.reply_text(
+            "Выберите отдел для работы с ботом:",
+            reply_markup=keyboard
+        )
+    elif update.callback_query:
+        await update.callback_query.edit_message_text(
+            "Выберите отдел для работы с ботом:",
+            reply_markup=keyboard
+        )
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if 'department' not in context.user_data:
-        if text not in DEPARTMENTS:
-            await update.message.reply_text("Выберите отдел из списка.")
-            return
-        context.user_data['department'] = text
-        if not SCENARIOS[text]:
-            contact = RESPONSIBLES.get(text, "ответственному руководителю")
-            await update.message.reply_text(
-                f"Твоя инструкция в разработке, пока можешь обратиться к @amiled_pro или @vladislavsaenko"
-            )
-            context.user_data.clear()
-            await start(update, context)
-            return
-        context.user_data['step'] = 'start'
-        context.user_data['path'] = []
-        await show_step(update, context)
-        return
+async def department_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    dep = query.data.split("|", 1)[1]
+    context.user_data.clear()
+    context.user_data['department'] = dep
 
-    if text.lower() == "начать сначала":
-        context.user_data.clear()
+    if not SCENARIOS[dep]:
+        contact = RESPONSIBLES.get(dep, "ответственному руководителю")
+        await query.edit_message_text(
+            f"Твоя инструкция в разработке, пока можешь обратиться к @amiled_pro или @vladislavsaenko"
+        )
         await start(update, context)
         return
 
-    department = context.user_data['department']
-    scenario = SCENARIOS[department]
-    current_step = context.user_data.get('step', 'start')
-    path = context.user_data.get('path', [])
+    context.user_data['step'] = 'start'
+    context.user_data['path'] = []
+    await show_step(update, context, edit=True)
 
-    if text.lower() not in ["да", "нет", "назад", "начать сначала"]:
-        await update.message.reply_text("Пожалуйста, выбери только 'Да', 'Нет', 'Назад' или 'Начать сначала'")
+async def step_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user_data = context.user_data
+    dep = user_data.get('department')
+    scenario = SCENARIOS[dep]
+    step = user_data.get('step', 'start')
+    path = user_data.get('path', [])
+
+    if query.data == "nav|reset":
+        context.user_data.clear()
+        await start(update, context)
+        return
+    if query.data == "nav|back" and path:
+        prev = path[-1]
+        user_data['step'] = prev
+        user_data['path'] = path[:-1]
+        await show_step(update, context, edit=True)
         return
 
-    if text.lower() == "назад" and len(path) > 0:
-        previous_step = path[-1]
-        context.user_data['step'] = previous_step
-        context.user_data['path'] = path[:-1]
-        next_step = previous_step
+    answer = "yes" if query.data == "answer|yes" else "no"
+    next_step = scenario[step]['yes'] if answer == "yes" else scenario[step]['no']
+    user_data['step'] = next_step
+    user_data['path'] = path + [step]
+    await show_step(update, context, edit=True)
+
+async def show_step(update, context, edit=False):
+    user_data = context.user_data
+    dep = user_data['department']
+    scenario = SCENARIOS[dep]
+    step = user_data['step']
+    path = user_data.get('path', [])
+    text = scenario[step]['text']
+    keyboard = get_step_keyboard(step, path)
+    if edit:
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard)
     else:
-        next_step = scenario[current_step]['yes'] if text.lower() == 'да' else scenario[current_step]['no']
-        context.user_data['step'] = next_step
-        context.user_data['path'] = path + [current_step]
+        await update.message.reply_text(text, reply_markup=keyboard)
 
-    buttons = [["Да", "Нет"], ["Начать сначала"]]
-    if len(context.user_data.get('path', [])) >= 1:
-        buttons[1].insert(0, "Назад")
-    reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text(scenario[next_step]['text'], reply_markup=reply_markup)
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await start(update, context)
 
-async def show_step(update, context):
-    department = context.user_data['department']
-    step = context.user_data['step']
-    scenario = SCENARIOS[department]
-    reply_markup = ReplyKeyboardMarkup(
-        [["Да", "Нет"], ["Начать сначала"]],
-        one_time_keyboard=True,
-        resize_keyboard=True
-    )
-    await update.message.reply_text(scenario[step]['text'], reply_markup=reply_markup)
-
-async def remove_previous_webhook(app):
-    try:
-        await app.bot.delete_webhook()
-    except Exception:
-        pass
-
-async def main():
+def main():
     logging.basicConfig(level=logging.INFO)
     app = ApplicationBuilder().token(TOKEN).build()
-    await remove_previous_webhook(app)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    PORT = int(os.environ.get('PORT', '10000'))
-    await app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=f"https://goodscreenbazabot.onrender.com/{TOKEN}"
-    )
+    app.add_handler(CallbackQueryHandler(department_callback, pattern=r"^department\|"))
+    app.add_handler(CallbackQueryHandler(step_callback, pattern=r"^(answer|nav)\|"))
+    app.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
-    except RuntimeError:
-        import nest_asyncio
-        nest_asyncio.apply()
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
+    main()
