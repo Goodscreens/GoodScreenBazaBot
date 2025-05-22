@@ -201,6 +201,11 @@ def get_step_keyboard(step, path):
     buttons.append(nav)
     return InlineKeyboardMarkup(buttons)
 
+def get_reset_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("Начать сначала", callback_data="nav|reset")]
+    ])
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
     keyboard = get_departments_keyboard()
@@ -222,11 +227,10 @@ async def department_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data['department'] = dep
 
     if not SCENARIOS[dep]:
-        contact = RESPONSIBLES.get(dep, "ответственному руководителю")
         await query.edit_message_text(
-            f"Твоя инструкция в разработке, пока можешь обратиться к @amiled_pro или @vladislavsaenko"
+            "Твоя инструкция в разработке, пока можешь обратиться к @amiled_pro или @vladislavsaenko",
+            reply_markup=get_reset_keyboard()
         )
-        await start(update, context)
         return
 
     context.user_data['step'] = 'start'
