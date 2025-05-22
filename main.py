@@ -199,8 +199,7 @@ async def main():
         listen="0.0.0.0",
         port=PORT,
         url_path=TOKEN,
-        webhook_url=https://dashboard.render.com/web/srv-d0nl8q15pdvs738r1cg0/deploys/dep-d0nohpc9c44c738kqi3g{TOKEN}"
-    )
+       webhook_url=f"https://goodscreenbazabot.onrender.com/{TOKEN}"
 
 if __name__ == '__main__':
     try:
