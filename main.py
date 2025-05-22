@@ -1,3 +1,5 @@
+import nest_asyncio
+nest_asyncio.apply()
 import logging
 import os
 import asyncio
@@ -197,7 +199,7 @@ async def main():
         listen="0.0.0.0",
         port=PORT,
         url_path=TOKEN,
-        webhook_url=f"https://your-render-domain.onrender.com/{TOKEN}"
+        webhook_url=https://dashboard.render.com/web/srv-d0nl8q15pdvs738r1cg0/deploys/dep-d0nohpc9c44c738kqi3g{TOKEN}"
     )
 
 if __name__ == '__main__':
