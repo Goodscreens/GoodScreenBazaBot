@@ -1,59 +1,106 @@
 import logging
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-import os
-TOKEN = os.environ["TOKEN"]
-  # Сюда вставь свой токен
+# Включаем логирование
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-# Простой сценарий: вопросы и развилки Да/Нет
-SCENARIO = {
-    "start": {
-        "text": "Это бот-инструкция для отдела продаж. Начнём?\n(Да/Нет)",
-        "yes": "step1",
-        "no": "end"
-    },
-    "step1": {
-        "text": "Вы уже позвонили клиенту?\n(Да/Нет)",
-        "yes": "step2",
-        "no": "end"
-    },
-    "step2": {
-        "text": "Есть ли интерес?\n(Да/Нет)",
-        "yes": "step3",
-        "no": "end"
-    },
-    "step3": {
-        "text": "Записали ли вы результат в CRM?\n(Да/Нет)",
-        "yes": "end",
-        "no": "end"
-    },
-    "end": {
-        "text": "Сценарий завершён. Спасибо!",
-        "yes": "start",
-        "no": "start"
+# Структура взаимодействия
+flow = {
+    'Сценарий работы Отел продаж': {
+        '1. Новый лид поступил в Bitrix?': {
+            'Да': {
+                'description': 'Менеджер принимает лид совершая звонок или отправляя письмо и вносит все данные в Bitrix',
+                'next': '2. Менеджер связался с клиентом?',
+            },
+            'Нет': {
+                'description':
+                    'Сообщить о сбое ответственному за интеграцию. Проверить форму на сайте/квизе.',
+            },
+        },
+        '2. Менеджер связался с клиентом?': {
+            'Да': {
+                'description':
+                    'Уточнить ТЗ клиента и внести все данные в карточку лида, переместив его.',
+                'next': '3. ТЗ клиента уточнено?',
+            },
+            'Нет': {
+                'description':
+                    'Вручную назначить ответственного. Уведомить руководителя.',
+            },
+        },
+        # Добавляем остальные шаги аналогично...
     }
 }
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['step'] = "start"
-    reply_markup = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text(SCENARIO["start"]["text"], reply_markup=reply_markup)
+# Глобальная переменная для хранения состояния каждого пользователя
+user_states = {}
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    step = context.user_data.get("step", "start")
-    user_answer = update.message.text.lower()
-    if user_answer not in ["да", "нет"]:
-        await update.message.reply_text("Пожалуйста, выберите только 'Да' или 'Нет'")
+def start(update: Update, context: CallbackContext):
+    """Обработчик команды /start"""
+    user_id = update.effective_user.id
+    user_states[user_id] = {'current_node': 'Сценарий работы Отел продаж'}
+    send_current_question(update, context)
+
+def send_current_question(update: Update, context: CallbackContext):
+    """Отправляет текущий вопрос пользователю"""
+    user_id = update.effective_user.id
+    current_node = user_states[user_id]['current_node']
+    node_data = flow[current_node]
+
+    if isinstance(node_data, dict):
+        question = list(node_data.keys())[0]
+        update.message.reply_text(question)
+    else:
+        update.message.reply_text("Конец сценария.")
+
+def handle_response(update: Update, context: CallbackContext):
+    """Обрабатывает ответ пользователя"""
+    user_id = update.effective_user.id
+    response = update.message.text.strip().capitalize()
+
+    if user_id not in user_states:
+        update.message.reply_text("Вы не начали сценарий. Напишите /start.")
         return
-    next_step = SCENARIO[step]["yes"] if user_answer == "да" else SCENARIO[step]["no"]
-    context.user_data['step'] = next_step
-    reply_markup = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text(SCENARIO[next_step]["text"], reply_markup=reply_markup)
+
+    current_node = user_states[user_id]['current_node']
+    node_data = flow[current_node]
+
+    if isinstance(node_data, dict):
+        question = list(node_data.keys())[0]
+        options = node_data[question]
+
+        if response in options:
+            next_step = options[response]
+
+            if 'next' in next_step:
+                user_states[user_id]['current_node'] = next_step['next']
+                send_current_question(update, context)
+            else:
+                update.message.reply_text(next_step['description'])
+                del user_states[user_id]  # Сброс состояния после завершения
+        else:
+            update.message.reply_text("Выберите 'Да' или 'Нет'.")
+    else:
+        update.message.reply_text("Ошибка в состоянии. Начните заново с /start.")
+
+def main():
+    """Основная функция для запуска бота"""
+    # Замените 'YOUR_TELEGRAM_BOT_TOKEN' на токен вашего бота
+    updater = Updater("YOUR_TELEGRAM_BOT_TOKEN", use_context=True)
+
+    dp = updater.dispatcher
+
+    # Обработчики команд
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_response))
+
+    # Запуск бота
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.run_polling()
+    main()
