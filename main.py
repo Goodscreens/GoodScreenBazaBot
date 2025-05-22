@@ -10,7 +10,7 @@ TOKEN = os.environ.get("TOKEN", "YOUR_BOT_TOKEN")
 SCENARIO = {
     'start': {
         'text': 'Это бот-инструкция для отдела продаж. Начнём?\n(Да/Нет)',
-        'Поехали': 'step_1',
+        'yes': 'step_1',
         'no': 'end'
     },
     'step_1': {
@@ -139,8 +139,8 @@ SCENARIO = {
         'no': 'end'
     },
     'end': {
-        'text': 'Ты молодец! Спасибо!',
-        'Заново': 'start',
+        'text': 'Сценарий завершён. Спасибо!',
+        'yes': 'start',
         'no': 'start'
     }
 }
@@ -170,7 +170,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.run_polling()
+    
+    try:
+        app = ApplicationBuilder().token(TOKEN).build()
+
+        # Добавляем обработчики
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+        # Запуск через webhook вместо polling
+        PORT = int(os.environ.get('PORT', '8443'))
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            url_path=TOKEN,
+            webhook_url=f"https://your-render-domain.onrender.com/ {TOKEN}"
+        )
+    except Exception as e:
+        logging.error(f"Error starting the bot: {e}")
