@@ -6,7 +6,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, Messa
 import os
 TOKEN = os.environ.get("TOKEN", "YOUR_BOT_TOKEN")
 
-# --- СЦЕНАРИЙ ИЗ ТВОЕГО .MD ФАЙЛА ---
+# --- СЦЕНАРИЙ ---
 SCENARIO = {
     'start': {
         'text': 'Это бот-инструкция для отдела продаж. Начнём?\n(Да/Нет)',
@@ -148,6 +148,7 @@ SCENARIO = {
 # --- ФУНКЦИИ ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /start"""
     context.user_data['step'] = 'start'
     context.user_data['path'] = []  # Храним историю шагов
     reply_markup = ReplyKeyboardMarkup(
@@ -158,6 +159,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(SCENARIO['start']['text'], reply_markup=reply_markup)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик сообщений пользователя"""
     user_answer = update.message.text.lower()
     current_step = context.user_data.get('step', 'start')
     path = context.user_data.get('path', [])
@@ -180,9 +182,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         next_step = previous_step
     else:
         next_step = SCENARIO[current_step]['yes'] if user_answer == 'да' else SCENARIO[current_step]['no']
-        context.user_data['path'] = path + [current_step]  # Сохраняем текущий шаг в историю
 
     context.user_data['step'] = next_step
+    context.user_data['path'] = path + [current_step]  # Сохраняем текущий шаг в историю
 
     buttons = [["Да", "Нет"], ["Начать сначала"]]
     if len(context.user_data.get('path', [])) >= 1:
@@ -203,34 +205,16 @@ async def remove_previous_webhook(app):
     except Exception as e:
         logging.error(f"Ошибка при удалении предыдущего Webhook: {e}")
 
-# --- ОБРАБОТЧИКИ ---
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['step'] = 'start'
-    reply_markup = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True, resize_keyboard=True)
-    await update.message.reply_text(SCENARIO['start']['text'], reply_markup=reply_markup)
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_answer = update.message.text.lower()
-    if user_answer not in ["да", "нет"]:
-        await update.message.reply_text("Пожалуйста, выберите только 'Да' или 'Нет'")
-        return
-
-    current_step = context.user_data.get('step', 'start')
-    next_step = SCENARIO[current_step]['yes'] if user_answer == 'да' else SCENARIO[current_step]['no']
-
-    context.user_data['step'] = next_step
-    reply_markup = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True, resize_keyboard=True)
-
-    await update.message.reply_text(SCENARIO[next_step]['text'], reply_markup=reply_markup)
-
 # --- ЗАПУСК БОТА ---
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
-    
+    logging.basicConfig(level=logging.DEBUG)  # Увеличим уровень логирования до DEBUG
+
     try:
         app = ApplicationBuilder().token(TOKEN).build()
+
+        # Удаляем предыдущий Webhook
+        app.run_async(remove_previous_webhook(app))
 
         # Добавляем обработчики
         app.add_handler(CommandHandler("start", start))
@@ -242,8 +226,7 @@ if __name__ == '__main__':
             listen="0.0.0.0",
             port=PORT,
             url_path=TOKEN,
-            webhook_url=f"https://your-render-domain.onrender.com/ {TOKEN}"
+            webhook_url=f"https://your-render-domain.onrender.com/ {TOKEN}"  # Убрал лишние пробелы
         )
-        print(f"Webhook set to: {app.bot.get_webhook_info()}")
     except Exception as e:
         logging.error(f"Error starting the bot: {e}")
