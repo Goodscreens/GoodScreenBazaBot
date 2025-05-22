@@ -1,12 +1,11 @@
 import logging
+import os
+import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
-# Получаем токен из переменных окружения
-import os
-TOKEN = os.environ.get("TOKEN", "YOUR_BOT_TOKEN")
+TOKEN = os.environ.get("TOKEN", "YOUR_BOT_TOKEN")  # Замени на свой или через переменную окружения
 
-# --- СЦЕНАРИЙ ---
 SCENARIO = {
     'start': {
         'text': 'Это бот-инструкция для отдела продаж. Начнём?\n(Да/Нет)',
@@ -145,12 +144,9 @@ SCENARIO = {
     }
 }
 
-# --- ФУНКЦИИ ---
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик команды /start"""
     context.user_data['step'] = 'start'
-    context.user_data['path'] = []  # Храним историю шагов
+    context.user_data['path'] = []
     reply_markup = ReplyKeyboardMarkup(
         [["Да", "Нет"], ["Начать сначала"]],
         one_time_keyboard=True,
@@ -159,74 +155,53 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(SCENARIO['start']['text'], reply_markup=reply_markup)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработчик сообщений пользователя"""
     user_answer = update.message.text.lower()
     current_step = context.user_data.get('step', 'start')
     path = context.user_data.get('path', [])
-
     if user_answer not in ["да", "нет", "начать сначала", "назад"]:
         await update.message.reply_text("Пожалуйста, выберите только 'Да', 'Нет', 'Назад' или 'Начать сначала'")
         return
-
-    # Кнопка "Начать сначала"
     if user_answer == "начать сначала":
         context.user_data.clear()
         await start(update, context)
         return
-
-    # Кнопка "Назад"
     elif user_answer == "назад" and len(path) > 0:
         previous_step = path[-1]
         context.user_data['step'] = previous_step
-        context.user_data['path'] = path[:-1]  # Убираем последний шаг из истории
+        context.user_data['path'] = path[:-1]
         next_step = previous_step
     else:
         next_step = SCENARIO[current_step]['yes'] if user_answer == 'да' else SCENARIO[current_step]['no']
-
     context.user_data['step'] = next_step
-    context.user_data['path'] = path + [current_step]  # Сохраняем текущий шаг в историю
-
+    context.user_data['path'] = path + [current_step]
     buttons = [["Да", "Нет"], ["Начать сначала"]]
     if len(context.user_data.get('path', [])) >= 1:
-        buttons[1].insert(0, "Назад")  # Добавляем "Назад", если есть история
-
+        buttons[1].insert(0, "Назад")
     reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
     await update.message.reply_text(SCENARIO[next_step]['text'], reply_markup=reply_markup)
 
-# --- УДАЛЕНИЕ ПРЕДЫДУЩЕГО WEBHOOK ---
-
 async def remove_previous_webhook(app):
-    """
-    Удаляет предыдущий Webhook, если он установлен.
-    """
     try:
         await app.bot.delete_webhook()
-        logging.info("Предыдущий Webhook успешно удалён.")
-    except Exception as e:
-        logging.error(f"Ошибка при удалении предыдущего Webhook: {e}")
+    except Exception:
+        pass
 
-# --- ЗАПУСК БОТА ---
+async def main():
+    logging.basicConfig(level=logging.DEBUG)
+    app = ApplicationBuilder().token(TOKEN).build()
+    await remove_previous_webhook(app)
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    PORT = int(os.environ.get('PORT', '8443'))
+    await app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=f"https://your-render-domain.onrender.com/{TOKEN}"
+    )
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)  # Увеличим уровень логирования до DEBUG
-
     try:
-        app = ApplicationBuilder().token(TOKEN).build()
-
-        # Удаляем предыдущий Webhook
-        app.run_async(remove_previous_webhook(app))
-
-        # Добавляем обработчики
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-        # Запуск через webhook вместо polling
-        PORT = int(os.environ.get('PORT', '8443'))
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=PORT,
-            url_path=TOKEN,
-            webhook_url=f"https://your-render-domain.onrender.com/ {TOKEN}"  # Убрал лишние пробелы
-        )
+        asyncio.run(main())
     except Exception as e:
         logging.error(f"Error starting the bot: {e}")
