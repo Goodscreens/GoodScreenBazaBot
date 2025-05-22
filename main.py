@@ -145,6 +145,64 @@ SCENARIO = {
     }
 }
 
+# --- ФУНКЦИИ ---
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['step'] = 'start'
+    context.user_data['path'] = []  # Храним историю шагов
+    reply_markup = ReplyKeyboardMarkup(
+        [["Да", "Нет"], ["Начать сначала"]],
+        one_time_keyboard=True,
+        resize_keyboard=True
+    )
+    await update.message.reply_text(SCENARIO['start']['text'], reply_markup=reply_markup)
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_answer = update.message.text.lower()
+    current_step = context.user_data.get('step', 'start')
+    path = context.user_data.get('path', [])
+
+    if user_answer not in ["да", "нет", "начать сначала", "назад"]:
+        await update.message.reply_text("Пожалуйста, выберите только 'Да', 'Нет', 'Назад' или 'Начать сначала'")
+        return
+
+    # Кнопка "Начать сначала"
+    if user_answer == "начать сначала":
+        context.user_data.clear()
+        await start(update, context)
+        return
+
+    # Кнопка "Назад"
+    elif user_answer == "назад" and len(path) > 0:
+        previous_step = path[-1]
+        context.user_data['step'] = previous_step
+        context.user_data['path'] = path[:-1]  # Убираем последний шаг из истории
+        next_step = previous_step
+    else:
+        next_step = SCENARIO[current_step]['yes'] if user_answer == 'да' else SCENARIO[current_step]['no']
+        context.user_data['path'] = path + [current_step]  # Сохраняем текущий шаг в историю
+
+    context.user_data['step'] = next_step
+
+    buttons = [["Да", "Нет"], ["Начать сначала"]]
+    if len(context.user_data.get('path', [])) >= 1:
+        buttons[1].insert(0, "Назад")  # Добавляем "Назад", если есть история
+
+    reply_markup = ReplyKeyboardMarkup(buttons, one_time_keyboard=True, resize_keyboard=True)
+    await update.message.reply_text(SCENARIO[next_step]['text'], reply_markup=reply_markup)
+
+# --- УДАЛЕНИЕ ПРЕДЫДУЩЕГО WEBHOOK ---
+
+async def remove_previous_webhook(app):
+    """
+    Удаляет предыдущий Webhook, если он установлен.
+    """
+    try:
+        await app.bot.delete_webhook()
+        logging.info("Предыдущий Webhook успешно удалён.")
+    except Exception as e:
+        logging.error(f"Ошибка при удалении предыдущего Webhook: {e}")
+
 # --- ОБРАБОТЧИКИ ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
