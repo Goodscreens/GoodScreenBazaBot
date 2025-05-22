@@ -10,7 +10,7 @@ TOKEN = os.environ.get("TOKEN", "YOUR_BOT_TOKEN")
 SCENARIO = {
     'start': {
         'text': 'Это бот-инструкция для отдела продаж. Начнём?\n(Да/Нет)',
-        'yes': 'step_1',
+        'Поехали': 'step_1',
         'no': 'end'
     },
     'step_1': {
@@ -139,8 +139,8 @@ SCENARIO = {
         'no': 'end'
     },
     'end': {
-        'text': 'Сценарий завершён. Спасибо!',
-        'yes': 'start',
+        'text': 'Ты молодец! Спасибо!',
+        'Заново': 'start',
         'no': 'start'
     }
 }
