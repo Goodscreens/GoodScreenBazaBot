@@ -1,9 +1,5 @@
-import nest_asyncio
-nest_asyncio.apply()
-
 import logging
 import os
-import asyncio
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
@@ -167,7 +163,7 @@ SCENARIOS = {
             'no': 'start'
         }
     },
-    # Все остальные отделы пока без сценария — заглушка
+    # Все остальные отделы — заглушки
     "Маркетинг": None,
     "СММ": None,
     "Делопроизводство": None,
@@ -195,7 +191,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
-    # Если отдел не выбран — меню отделов
     if 'department' not in context.user_data:
         if text not in DEPARTMENTS:
             await update.message.reply_text("Выберите отдел из списка.")
@@ -214,13 +209,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_step(update, context)
         return
 
-    # Если "Начать сначала" — сброс и меню отделов
     if text.lower() == "начать сначала":
         context.user_data.clear()
         await start(update, context)
         return
 
-    # Дальше идёт обработка шагов сценария
     department = context.user_data['department']
     scenario = SCENARIOS[department]
     current_step = context.user_data.get('step', 'start')
@@ -257,28 +250,12 @@ async def show_step(update, context):
     )
     await update.message.reply_text(scenario[step]['text'], reply_markup=reply_markup)
 
-async def remove_previous_webhook(app):
-    try:
-        await app.bot.delete_webhook()
-    except Exception:
-        pass
-
-async def main():
-    logging.basicConfig(level=logging.DEBUG)
+def main():
+    logging.basicConfig(level=logging.INFO)
     app = ApplicationBuilder().token(TOKEN).build()
-    await remove_previous_webhook(app)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    PORT = int(os.environ.get('PORT', '8443'))
-    await app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=f"https://goodscreenbazabot.onrender.com/{TOKEN}"
-    )
+    app.run_polling()
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except Exception as e:
-        logging.error(f"Error starting the bot: {e}")
+    main()
